@@ -1,0 +1,77 @@
+# AI 台股技術分析 GUI
+
+版本：v1.2
+
+這個版本改用 FinMind 台股日成交資料，並以桌面 GUI 執行，不再啟動 Streamlit 網站。
+
+## 啟動
+
+```powershell
+python .\AI-stock.py
+```
+
+或使用：
+
+```powershell
+.\run_ai_stock.ps1
+```
+
+## API key 檔案
+
+程式會讀取下列檔案：
+
+```text
+C:\Users\shou0\PycharmProjects\api-key.txt
+```
+
+建議內容：
+
+```text
+FINMIND_API_KEY=你的_FinMind_token
+GEMINI_API_KEY=你的_Gemini_key
+```
+
+如果檔案不存在，程式啟動時會嘗試建立範本。GUI 內也可以輸入 key 後按「儲存 Key」寫回同一個檔案。
+
+## 資料來源
+
+FinMind API:
+
+```text
+https://api.finmindtrade.com/api/v4/data
+```
+
+使用資料集：
+
+```text
+TaiwanStockPrice
+```
+
+主要欄位轉換：
+
+- `max` -> `high`
+- `min` -> `low`
+- `Trading_Volume` -> `volume`
+
+## 功能
+
+- 台股代號查詢，例如 `2330`、`2317`、`2454`、`0050`
+- 左側自選清單，可儲存自訂股票或 ETF 代碼
+- 自選清單儲存在 `watchlist.json`
+- 總覽、走勢圖、歷史資料、AI 分析、相關新聞分頁
+- 每次查詢會同步搜尋該股市場新聞
+- K 線、成交量、RSI 圖表
+- MA5、MA10、MA20、MA60
+- RSI 超買 / 超賣狀態
+- 歷史資料表
+- Gemini AI 教育性技術分析
+
+## GitHub 同步
+
+可使用下列腳本把目前專案主要檔案提交並推送到 GitHub：
+
+```powershell
+.\sync_to_github.ps1
+```
+
+腳本只會 stage 已列入清單的專案檔，避免把 API key 或不相關檔案推上去。
