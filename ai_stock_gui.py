@@ -24,7 +24,7 @@ from matplotlib.figure import Figure
 from tkinter import messagebox, ttk
 
 
-APP_VERSION = "v1.2"
+APP_VERSION = "v1.5"
 FINMIND_API_URL = "https://api.finmindtrade.com/api/v4/data"
 GOOGLE_NEWS_RSS_URL = "https://news.google.com/rss/search"
 API_KEY_FILE = Path(r"C:\Users\shou0\PycharmProjects\api-key.txt")
@@ -61,6 +61,20 @@ class NewsItem:
     source: str
     published: str
     link: str
+
+
+@dataclass
+class MLSignal:
+    status: str
+    model_name: str = ""
+    prediction_label: str = ""
+    up_probability: float | None = None
+    down_probability: float | None = None
+    train_accuracy: float | None = None
+    test_accuracy: float | None = None
+    sample_count: int = 0
+    feature_count: int = 0
+    message: str = ""
 
 
 def configure_matplotlib_fonts() -> None:
@@ -331,7 +345,148 @@ def fetch_market_news(symbol: str, name: str, limit: int = 12) -> list[NewsItem]
     return items
 
 
-def build_ai_prompt(symbol: str, df: pd.DataFrame, rsi_period: int) -> str:
+def build_ml_feature_frame(df: pd.DataFrame) -> pd.DataFrame:
+    features = df[["date", "open", "high", "low", "close", "volume", "MA5", "MA10", "MA20", "MA60", "RSI"]].copy()
+    features["return_1d"] = features["close"].pct_change()
+    features["return_5d"] = features["close"].pct_change(5)
+    features["range_pct"] = (features["high"] - features["low"]) / features["close"].replace(0, np.nan)
+    features["close_open_pct"] = (features["close"] - features["open"]) / features["open"].replace(0, np.nan)
+    features["volume_change"] = features["volume"].pct_change()
+    features["volatility_5d"] = features["return_1d"].rolling(5).std()
+    features["ma5_gap"] = (features["close"] - features["MA5"]) / features["MA5"].replace(0, np.nan)
+    features["ma20_gap"] = (features["close"] - features["MA20"]) / features["MA20"].replace(0, np.nan)
+    features["ma5_slope"] = features["MA5"].pct_change()
+    features["ma20_slope"] = features["MA20"].pct_change()
+    features["target_up_next_day"] = (features["close"].shift(-1) > features["close"]).astype(int)
+    return features
+
+
+def train_ml_signal(df: pd.DataFrame) -> MLSignal:
+    if len(df) < 90:
+        return MLSignal(
+            status="insufficient_data",
+            message="資料筆數少於 90 筆，暫不訓練機器學習模型。",
+            sample_count=len(df),
+        )
+
+    try:
+        from sklearn.ensemble import RandomForestClassifier
+        from sklearn.linear_model import LogisticRegression
+        from sklearn.metrics import accuracy_score
+        from sklearn.pipeline import Pipeline
+        from sklearn.preprocessing import StandardScaler
+    except ImportError as exc:
+        return MLSignal(status="missing_dependency", message=f"尚未安裝 scikit-learn：{exc}")
+
+    feature_df = build_ml_feature_frame(df)
+    feature_cols = [
+        "return_1d",
+        "return_5d",
+        "range_pct",
+        "close_open_pct",
+        "volume_change",
+        "volatility_5d",
+        "ma5_gap",
+        "ma20_gap",
+        "ma5_slope",
+        "ma20_slope",
+        "RSI",
+    ]
+
+    trainable = feature_df.iloc[:-1].dropna(subset=feature_cols + ["target_up_next_day"]).copy()
+    latest_features = feature_df.iloc[[-1]].dropna(subset=feature_cols)
+    if len(trainable) < 60 or latest_features.empty:
+        return MLSignal(
+            status="insufficient_features",
+            message="可用特徵資料不足，暫不訓練機器學習模型。",
+            sample_count=len(trainable),
+            feature_count=len(feature_cols),
+        )
+
+    split_index = max(int(len(trainable) * 0.7), 1)
+    if len(trainable) - split_index < 15:
+        return MLSignal(
+            status="insufficient_test_data",
+            message="測試集筆數不足，暫不輸出機器學習訊號。",
+            sample_count=len(trainable),
+            feature_count=len(feature_cols),
+        )
+
+    x_train = trainable.iloc[:split_index][feature_cols]
+    y_train = trainable.iloc[:split_index]["target_up_next_day"].astype(int)
+    x_test = trainable.iloc[split_index:][feature_cols]
+    y_test = trainable.iloc[split_index:]["target_up_next_day"].astype(int)
+
+    candidates = [
+        (
+            "Logistic Regression",
+            Pipeline(
+                [
+                    ("scaler", StandardScaler()),
+                    ("model", LogisticRegression(max_iter=1000, random_state=42)),
+                ]
+            ),
+        ),
+        (
+            "Random Forest",
+            RandomForestClassifier(
+                n_estimators=200,
+                max_depth=4,
+                min_samples_leaf=5,
+                random_state=42,
+                class_weight="balanced_subsample",
+            ),
+        ),
+    ]
+
+    evaluated: list[tuple[str, Any, float, float]] = []
+    for model_name, model in candidates:
+        model.fit(x_train, y_train)
+        train_accuracy = accuracy_score(y_train, model.predict(x_train))
+        test_accuracy = accuracy_score(y_test, model.predict(x_test))
+        evaluated.append((model_name, model, train_accuracy, test_accuracy))
+
+    model_name, model, train_accuracy, test_accuracy = max(evaluated, key=lambda item: item[3])
+    probability = model.predict_proba(latest_features[feature_cols])[0]
+    class_order = list(model.classes_)
+    up_probability = float(probability[class_order.index(1)]) if 1 in class_order else 0.0
+    down_probability = 1.0 - up_probability
+    prediction_label = "偏多" if up_probability >= 0.5 else "偏空"
+
+    return MLSignal(
+        status="ok",
+        model_name=model_name,
+        prediction_label=prediction_label,
+        up_probability=up_probability,
+        down_probability=down_probability,
+        train_accuracy=float(train_accuracy),
+        test_accuracy=float(test_accuracy),
+        sample_count=len(trainable),
+        feature_count=len(feature_cols),
+        message="模型僅使用歷史價量與技術指標，結果是統計訊號，不是投資建議。",
+    )
+
+
+def format_ml_signal(signal: MLSignal) -> str:
+    if signal.status != "ok":
+        return f"ML 訊號：未產生。{signal.message}"
+
+    return (
+        f"ML 訊號：{signal.prediction_label}；"
+        f"上漲機率 {signal.up_probability:.1%}，下跌機率 {signal.down_probability:.1%}；"
+        f"模型 {signal.model_name}；"
+        f"訓練準確率 {signal.train_accuracy:.1%}，測試準確率 {signal.test_accuracy:.1%}；"
+        f"樣本 {signal.sample_count} 筆。{signal.message}"
+    )
+
+
+def build_ai_prompt(
+    symbol: str,
+    df: pd.DataFrame,
+    rsi_period: int,
+    news_items: list[NewsItem],
+    ml_signal: MLSignal,
+) -> str:
     start_price = float(df.iloc[0]["close"])
     end_price = float(df.iloc[-1]["close"])
     change_abs = end_price - start_price
@@ -342,10 +497,15 @@ def build_ai_prompt(symbol: str, df: pd.DataFrame, rsi_period: int) -> str:
     prompt_df = df[cols].tail(120).copy()
     prompt_df["date"] = prompt_df["date"].dt.strftime("%Y-%m-%d")
     data_json = prompt_df.round(4).to_json(orient="records", force_ascii=False)
+    news_text = "\n".join(
+        f"- {item.title}（{item.source}，{item.published}）" for item in news_items[:8]
+    ) or "- 查無相關新聞。"
+    ml_text = format_ml_signal(ml_signal)
+    ib_applicability = "ETF 以成分股、產業曝險與資金流向為主，Investment Banking 視角僅作為市場事件提醒。" if symbol.startswith("00") else "個股可加入資本市場、公司行動、併購與估值事件視角。"
 
     return f"""
-你是一位台股技術分析助理。請使用繁體中文，根據下列台股日成交資料做教育性技術分析。
-不要給保證獲利，也不要使用絕對買賣建議，請強調這不是投資建議。
+你是一位台股 AI 綜合分析助理。請使用繁體中文，整合技術面、相關新聞、Public Equity Investing 視角、輕量 Investment Banking 視角與機器學習訊號。
+不要給保證獲利，也不要使用絕對買賣建議。請明確說明這不是投資建議。
 
 股票代號：{symbol}
 資料區間：{df.iloc[0]["date"].strftime("%Y-%m-%d")} 到 {df.iloc[-1]["date"].strftime("%Y-%m-%d")}
@@ -355,22 +515,35 @@ def build_ai_prompt(symbol: str, df: pd.DataFrame, rsi_period: int) -> str:
 RSI 週期：{rsi_period}
 最新 RSI：{"資料不足" if pd.isna(latest_rsi) else f"{latest_rsi:.2f}"}
 RSI 狀態：{rsi_status(latest_rsi)}
+機器學習訊號：{ml_text}
+Investment Banking 適用性：{ib_applicability}
 
 請依序輸出：
-1. 價格趨勢
-2. MA5 / MA10 / MA20 / MA60 解讀
-3. 成交量變化
-4. RSI 狀態與限制
-5. 可能風險與觀察重點
+1. 技術面摘要：價格趨勢、MA5 / MA10 / MA20 / MA60、成交量、RSI。
+2. 相關新聞解讀：只根據下方新聞標題做市場情緒與可能催化因子判斷，避免臆測新聞內文。
+3. Public Equity Investing 視角：投資論點、多空情境、催化因子與主要風險。
+4. Investment Banking 視角：資本市場、估值、公司行動或交易事件；若資料不足請明確說資料不足。
+5. 機器學習訊號：說明方向、機率、測試準確率與限制，不可包裝成確定預測。
+6. 綜合觀察清單：列出 3-5 個後續應追蹤事項。
+
+相關新聞：
+{news_text}
 
 資料：
 {data_json}
 """.strip()
 
 
-def generate_ai_insights(symbol: str, df: pd.DataFrame, gemini_api_key: str, rsi_period: int) -> str:
+def generate_ai_insights(
+    symbol: str,
+    df: pd.DataFrame,
+    gemini_api_key: str,
+    rsi_period: int,
+    news_items: list[NewsItem],
+    ml_signal: MLSignal,
+) -> str:
     if not gemini_api_key.strip():
-        return "未設定 Gemini API Key，已略過 AI 分析。"
+        return "未設定 Gemini API Key，已略過 AI 綜合分析。\n\n" + format_ml_signal(ml_signal)
     try:
         from google import genai
     except ImportError as exc:
@@ -380,7 +553,7 @@ def generate_ai_insights(symbol: str, df: pd.DataFrame, gemini_api_key: str, rsi
         client = genai.Client(api_key=gemini_api_key.strip())
         response = client.models.generate_content(
             model=DEFAULT_GEMINI_MODEL,
-            contents=build_ai_prompt(symbol, df, rsi_period),
+            contents=build_ai_prompt(symbol, df, rsi_period, news_items, ml_signal),
         )
     except Exception as exc:
         raise RuntimeError(f"Gemini API 分析失敗：{exc}") from exc
@@ -401,6 +574,7 @@ class StockAnalysisGui:
         self.watchlist = load_watchlist()
         self.current_df: pd.DataFrame | None = None
         self.current_news: list[NewsItem] = []
+        self.current_ml_signal = MLSignal(status="not_run", message="尚未查詢。")
         self.figure_canvas: FigureCanvasTkAgg | None = None
 
         self.symbol_var = tk.StringVar(value=self.watchlist[0]["symbol"])
@@ -556,11 +730,13 @@ class StockAnalysisGui:
         self.chart_tab = ttk.Frame(self.tabs)
         self.table_tab = ttk.Frame(self.tabs)
         self.ai_tab = ttk.Frame(self.tabs)
+        self.ml_tab = ttk.Frame(self.tabs)
         self.news_tab = ttk.Frame(self.tabs)
 
         self.tabs.add(self.chart_tab, text="走勢圖")
         self.tabs.add(self.table_tab, text="歷史資料")
-        self.tabs.add(self.ai_tab, text="AI 分析")
+        self.tabs.add(self.ai_tab, text="AI 綜合分析")
+        self.tabs.add(self.ml_tab, text="ML 訊號")
         self.tabs.add(self.news_tab, text="相關新聞")
 
         self.chart_frame = ttk.Frame(self.chart_tab)
@@ -582,6 +758,12 @@ class StockAnalysisGui:
         self.ai_text.configure(yscrollcommand=ai_scroll.set)
         self.ai_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         ai_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.ml_text = tk.Text(self.ml_tab, wrap=tk.WORD, font=("Noto Sans TC", 11), padx=10, pady=10)
+        ml_scroll = ttk.Scrollbar(self.ml_tab, orient=tk.VERTICAL, command=self.ml_text.yview)
+        self.ml_text.configure(yscrollcommand=ml_scroll.set)
+        self.ml_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        ml_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
         news_columns = ("title", "source", "published")
         self.news_table = ttk.Treeview(self.news_tab, columns=news_columns, show="headings")
@@ -706,12 +888,23 @@ class StockAnalysisGui:
         try:
             raw_df = fetch_finmind_stock_price(symbol, self.finmind_key_var.get(), start_date, end_date)
             df = add_indicators(raw_df, rsi_period)
-            news_items = fetch_market_news(symbol, self.name_var.get())
-            ai_report = generate_ai_insights(symbol, df, self.gemini_key_var.get(), rsi_period)
+            ml_signal = train_ml_signal(df)
+            try:
+                news_items = fetch_market_news(symbol, self.name_var.get())
+            except Exception as exc:
+                news_items = [NewsItem(title=f"新聞搜尋失敗：{exc}", source="System", published="", link="")]
+            ai_report = generate_ai_insights(
+                symbol,
+                df,
+                self.gemini_key_var.get(),
+                rsi_period,
+                news_items,
+                ml_signal,
+            )
         except Exception as exc:
             self.root.after(0, lambda: self._show_error(str(exc)))
             return
-        self.root.after(0, lambda: self._render_result(symbol, df, rsi_period, ai_report, news_items))
+        self.root.after(0, lambda: self._render_result(symbol, df, rsi_period, ai_report, news_items, ml_signal))
 
     def _set_busy(self, busy: bool) -> None:
         self.root.config(cursor="watch" if busy else "")
@@ -730,14 +923,17 @@ class StockAnalysisGui:
         rsi_period: int,
         ai_report: str,
         news_items: list[NewsItem],
+        ml_signal: MLSignal,
     ) -> None:
         self._set_busy(False)
         self.current_df = df
         self.current_news = news_items
+        self.current_ml_signal = ml_signal
         self._update_summary(symbol, df, rsi_period)
         self._draw_chart(symbol, df, rsi_period)
         self._fill_table(df)
         self._fill_news(news_items)
+        self._fill_ml_signal(ml_signal)
         self.ai_text.delete("1.0", tk.END)
         self.ai_text.insert(tk.END, ai_report)
         self.tabs.select(self.chart_tab)
@@ -847,6 +1043,32 @@ class StockAnalysisGui:
 
         for index, item in enumerate(items):
             self.news_table.insert("", tk.END, iid=str(index), values=(item.title, item.source, item.published))
+
+    def _fill_ml_signal(self, signal: MLSignal) -> None:
+        self.ml_text.delete("1.0", tk.END)
+        if signal.status != "ok":
+            self.ml_text.insert(tk.END, format_ml_signal(signal))
+            return
+
+        detail = "\n".join(
+            [
+                "機器學習漲跌訊號",
+                "",
+                f"模型：{signal.model_name}",
+                f"預測方向：{signal.prediction_label}",
+                f"上漲機率：{signal.up_probability:.1%}",
+                f"下跌機率：{signal.down_probability:.1%}",
+                f"訓練準確率：{signal.train_accuracy:.1%}",
+                f"測試準確率：{signal.test_accuracy:.1%}",
+                f"樣本數：{signal.sample_count}",
+                f"特徵數：{signal.feature_count}",
+                "",
+                "特徵來源：日報酬、5 日報酬、日內振幅、成交量變化、5 日波動率、MA 乖離、MA 斜率、RSI。",
+                "",
+                "限制：模型只使用歷史價量與技術指標，沒有納入財報、籌碼、總經、產業資料或完整新聞語意。這是統計訊號，不是投資建議。",
+            ]
+        )
+        self.ml_text.insert(tk.END, detail)
 
     def open_selected_news(self, _event: Any | None = None) -> None:
         selection = self.news_table.selection()
