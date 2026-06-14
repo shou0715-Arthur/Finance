@@ -24,7 +24,7 @@ from matplotlib.figure import Figure
 from tkinter import messagebox, ttk
 
 
-APP_VERSION = "v1.5"
+APP_VERSION = "v1.6"
 FINMIND_API_URL = "https://api.finmindtrade.com/api/v4/data"
 GOOGLE_NEWS_RSS_URL = "https://news.google.com/rss/search"
 API_KEY_FILE = Path(r"C:\Users\shou0\PycharmProjects\api-key.txt")
@@ -74,6 +74,22 @@ class MLSignal:
     test_accuracy: float | None = None
     sample_count: int = 0
     feature_count: int = 0
+    message: str = ""
+
+
+@dataclass
+class FundamentalInfo:
+    status: str = "not_loaded"
+    eps: float | None = None
+    eps_date: str = ""
+    dividend_year: str = ""
+    cash_dividend: float | None = None
+    stock_dividend: float | None = None
+    cash_ex_dividend_date: str = ""
+    cash_payment_date: str = ""
+    cash_payment_month: str = ""
+    stock_ex_dividend_date: str = ""
+    announcement_date: str = ""
     message: str = ""
 
 
@@ -273,6 +289,139 @@ def fetch_finmind_stock_price(
     if result.empty:
         raise RuntimeError("FinMind 資料清理後沒有可用價格資料。")
     return result
+
+
+def fetch_finmind_rows(
+    dataset: str,
+    symbol: str,
+    finmind_api_key: str,
+    start_date: date,
+    end_date: date | None = None,
+) -> list[dict[str, Any]]:
+    headers = {}
+    if finmind_api_key.strip():
+        headers["Authorization"] = f"Bearer {finmind_api_key.strip()}"
+
+    params: dict[str, Any] = {
+        "dataset": dataset,
+        "data_id": symbol,
+        "start_date": start_date.isoformat(),
+    }
+    if end_date is not None:
+        params["end_date"] = end_date.isoformat()
+
+    try:
+        response = requests.get(FINMIND_API_URL, params=params, headers=headers, timeout=30)
+    except requests.exceptions.Timeout as exc:
+        raise RuntimeError("FinMind API 連線逾時，請稍後再試。") from exc
+    except requests.exceptions.RequestException as exc:
+        raise RuntimeError(f"FinMind API 連線失敗：{exc}") from exc
+
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise RuntimeError("FinMind API 回傳內容不是有效 JSON。") from exc
+
+    if isinstance(payload, dict):
+        status = payload.get("status")
+        msg = payload.get("msg") or payload.get("message") or payload.get("error")
+        rows = payload.get("data", [])
+        if status not in (None, 200, "200") and not rows:
+            raise RuntimeError(f"FinMind API 回傳錯誤：{msg or status}")
+    else:
+        rows = payload
+
+    if response.status_code >= 400:
+        raise RuntimeError(f"FinMind API HTTP 錯誤：{response.status_code}")
+    return rows if isinstance(rows, list) else []
+
+
+def _clean_date(value: Any) -> str:
+    text = str(value or "").strip()
+    return "" if text in {"", "0", "nan", "NaT"} else text
+
+
+def _payment_month(value: str) -> str:
+    parsed = pd.to_datetime(value, errors="coerce")
+    return "" if pd.isna(parsed) else parsed.strftime("%Y-%m")
+
+
+def fetch_fundamental_info(symbol: str, finmind_api_key: str) -> FundamentalInfo:
+    start = date.today() - timedelta(days=365 * 8)
+    end = date.today() + timedelta(days=365)
+    info = FundamentalInfo(status="ok")
+    messages: list[str] = []
+
+    try:
+        eps_rows = fetch_finmind_rows("TaiwanStockFinancialStatements", symbol, finmind_api_key, start, end)
+        eps_df = pd.DataFrame(eps_rows)
+        if not eps_df.empty and {"date", "type", "value"}.issubset(eps_df.columns):
+            eps_df = eps_df[eps_df["type"] == "EPS"].copy()
+            eps_df["date"] = pd.to_datetime(eps_df["date"], errors="coerce")
+            eps_df["value"] = pd.to_numeric(eps_df["value"], errors="coerce")
+            eps_df = eps_df.dropna(subset=["date", "value"]).sort_values("date")
+            if not eps_df.empty:
+                latest_eps = eps_df.iloc[-1]
+                info.eps = float(latest_eps["value"])
+                info.eps_date = latest_eps["date"].strftime("%Y-%m-%d")
+            else:
+                messages.append("查無 EPS")
+        else:
+            messages.append("查無 EPS")
+    except Exception as exc:
+        messages.append(f"EPS 讀取失敗：{exc}")
+
+    try:
+        dividend_rows = fetch_finmind_rows("TaiwanStockDividend", symbol, finmind_api_key, start, end)
+        div_df = pd.DataFrame(dividend_rows)
+        if not div_df.empty:
+            for col in [
+                "CashEarningsDistribution",
+                "CashStatutorySurplus",
+                "StockEarningsDistribution",
+                "StockStatutorySurplus",
+            ]:
+                div_df[col] = pd.to_numeric(div_df.get(col, 0), errors="coerce").fillna(0.0)
+            div_df["cash_dividend"] = div_df["CashEarningsDistribution"] + div_df["CashStatutorySurplus"]
+            div_df["stock_dividend"] = div_df["StockEarningsDistribution"] + div_df["StockStatutorySurplus"]
+            div_df["payment_dt"] = pd.to_datetime(div_df.get("CashDividendPaymentDate", ""), errors="coerce")
+            div_df["basis_dt"] = pd.to_datetime(div_df.get("date", ""), errors="coerce")
+            useful = div_df[(div_df["cash_dividend"] > 0) | (div_df["stock_dividend"] > 0)].copy()
+            if not useful.empty:
+                today_ts = pd.Timestamp(date.today())
+                upcoming = useful[useful["payment_dt"].notna() & (useful["payment_dt"] >= today_ts)].sort_values("payment_dt")
+                row = upcoming.iloc[0] if not upcoming.empty else useful.sort_values(["payment_dt", "basis_dt"], na_position="first").iloc[-1]
+                info.dividend_year = str(row.get("year", "")).strip()
+                info.cash_dividend = float(row["cash_dividend"])
+                info.stock_dividend = float(row["stock_dividend"])
+                info.cash_ex_dividend_date = _clean_date(row.get("CashExDividendTradingDate", ""))
+                info.cash_payment_date = _clean_date(row.get("CashDividendPaymentDate", ""))
+                info.cash_payment_month = _payment_month(info.cash_payment_date)
+                info.stock_ex_dividend_date = _clean_date(row.get("StockExDividendTradingDate", ""))
+                info.announcement_date = _clean_date(row.get("AnnouncementDate", ""))
+            else:
+                messages.append("查無股利政策")
+        else:
+            messages.append("查無股利政策")
+    except Exception as exc:
+        messages.append(f"股利讀取失敗：{exc}")
+
+    info.message = "；".join(messages)
+    if info.eps is None and info.cash_dividend is None and info.stock_dividend is None:
+        info.status = "unavailable"
+    return info
+
+
+def format_fundamental_summary(info: FundamentalInfo) -> str:
+    eps_text = "EPS：資料不足" if info.eps is None else f"EPS：{info.eps:.2f}（{info.eps_date}）"
+    if info.cash_dividend is None and info.stock_dividend is None:
+        dividend_text = "股利：資料不足"
+    else:
+        cash = 0.0 if info.cash_dividend is None else info.cash_dividend
+        stock = 0.0 if info.stock_dividend is None else info.stock_dividend
+        payment = info.cash_payment_month or info.cash_payment_date or "日期未定"
+        dividend_text = f"股利：現金 {cash:.2f} / 股票 {stock:.2f}，發放 {payment}"
+    return f"{eps_text}；{dividend_text}"
 
 
 def add_indicators(df: pd.DataFrame, rsi_period: int) -> pd.DataFrame:
@@ -486,6 +635,7 @@ def build_ai_prompt(
     rsi_period: int,
     news_items: list[NewsItem],
     ml_signal: MLSignal,
+    fundamental_info: FundamentalInfo,
 ) -> str:
     start_price = float(df.iloc[0]["close"])
     end_price = float(df.iloc[-1]["close"])
@@ -501,6 +651,7 @@ def build_ai_prompt(
         f"- {item.title}（{item.source}，{item.published}）" for item in news_items[:8]
     ) or "- 查無相關新聞。"
     ml_text = format_ml_signal(ml_signal)
+    fundamental_text = format_fundamental_summary(fundamental_info)
     ib_applicability = "ETF 以成分股、產業曝險與資金流向為主，Investment Banking 視角僅作為市場事件提醒。" if symbol.startswith("00") else "個股可加入資本市場、公司行動、併購與估值事件視角。"
 
     return f"""
@@ -515,16 +666,18 @@ def build_ai_prompt(
 RSI 週期：{rsi_period}
 最新 RSI：{"資料不足" if pd.isna(latest_rsi) else f"{latest_rsi:.2f}"}
 RSI 狀態：{rsi_status(latest_rsi)}
+EPS / 股利：{fundamental_text}
 機器學習訊號：{ml_text}
 Investment Banking 適用性：{ib_applicability}
 
 請依序輸出：
 1. 技術面摘要：價格趨勢、MA5 / MA10 / MA20 / MA60、成交量、RSI。
-2. 相關新聞解讀：只根據下方新聞標題做市場情緒與可能催化因子判斷，避免臆測新聞內文。
-3. Public Equity Investing 視角：投資論點、多空情境、催化因子與主要風險。
-4. Investment Banking 視角：資本市場、估值、公司行動或交易事件；若資料不足請明確說資料不足。
-5. 機器學習訊號：說明方向、機率、測試準確率與限制，不可包裝成確定預測。
-6. 綜合觀察清單：列出 3-5 個後續應追蹤事項。
+2. EPS / 股利：解讀最新 EPS、現金股利、股票股利、預計發放月份與配息金額；若是 ETF 或資料不足請明確說明。
+3. 相關新聞解讀：只根據下方新聞標題做市場情緒與可能催化因子判斷，避免臆測新聞內文。
+4. Public Equity Investing 視角：投資論點、多空情境、催化因子與主要風險。
+5. Investment Banking 視角：資本市場、估值、公司行動或交易事件；若資料不足請明確說資料不足。
+6. 機器學習訊號：說明方向、機率、測試準確率與限制，不可包裝成確定預測。
+7. 綜合觀察清單：列出 3-5 個後續應追蹤事項。
 
 相關新聞：
 {news_text}
@@ -541,9 +694,15 @@ def generate_ai_insights(
     rsi_period: int,
     news_items: list[NewsItem],
     ml_signal: MLSignal,
+    fundamental_info: FundamentalInfo,
 ) -> str:
     if not gemini_api_key.strip():
-        return "未設定 Gemini API Key，已略過 AI 綜合分析。\n\n" + format_ml_signal(ml_signal)
+        return (
+            "未設定 Gemini API Key，已略過 AI 綜合分析。\n\n"
+            + format_fundamental_summary(fundamental_info)
+            + "\n"
+            + format_ml_signal(ml_signal)
+        )
     try:
         from google import genai
     except ImportError as exc:
@@ -553,7 +712,7 @@ def generate_ai_insights(
         client = genai.Client(api_key=gemini_api_key.strip())
         response = client.models.generate_content(
             model=DEFAULT_GEMINI_MODEL,
-            contents=build_ai_prompt(symbol, df, rsi_period, news_items, ml_signal),
+            contents=build_ai_prompt(symbol, df, rsi_period, news_items, ml_signal, fundamental_info),
         )
     except Exception as exc:
         raise RuntimeError(f"Gemini API 分析失敗：{exc}") from exc
@@ -575,6 +734,7 @@ class StockAnalysisGui:
         self.current_df: pd.DataFrame | None = None
         self.current_news: list[NewsItem] = []
         self.current_ml_signal = MLSignal(status="not_run", message="尚未查詢。")
+        self.current_fundamental = FundamentalInfo(status="not_loaded", message="尚未查詢。")
         self.figure_canvas: FigureCanvasTkAgg | None = None
 
         self.symbol_var = tk.StringVar(value=self.watchlist[0]["symbol"])
@@ -592,6 +752,7 @@ class StockAnalysisGui:
             "change": tk.StringVar(value="-"),
             "volume": tk.StringVar(value="-"),
             "rsi": tk.StringVar(value="-"),
+            "fundamental": tk.StringVar(value="-"),
             "range": tk.StringVar(value="-"),
         }
 
@@ -719,8 +880,11 @@ class StockAnalysisGui:
         ttk.Label(panel, textvariable=self.summary_vars["rsi"], font=("Noto Sans TC", 12)).grid(
             row=1, column=3, sticky=tk.W, padx=(0, 30)
         )
-        ttk.Label(panel, textvariable=self.summary_vars["range"], font=("Noto Sans TC", 12)).grid(
+        ttk.Label(panel, textvariable=self.summary_vars["fundamental"], font=("Noto Sans TC", 12)).grid(
             row=1, column=4, sticky=tk.W
+        )
+        ttk.Label(panel, textvariable=self.summary_vars["range"], font=("Noto Sans TC", 12)).grid(
+            row=2, column=0, columnspan=5, sticky=tk.W, pady=(6, 0)
         )
 
     def _build_tabs(self, parent: ttk.Frame) -> None:
@@ -731,12 +895,14 @@ class StockAnalysisGui:
         self.table_tab = ttk.Frame(self.tabs)
         self.ai_tab = ttk.Frame(self.tabs)
         self.ml_tab = ttk.Frame(self.tabs)
+        self.fundamental_tab = ttk.Frame(self.tabs)
         self.news_tab = ttk.Frame(self.tabs)
 
         self.tabs.add(self.chart_tab, text="走勢圖")
         self.tabs.add(self.table_tab, text="歷史資料")
         self.tabs.add(self.ai_tab, text="AI 綜合分析")
         self.tabs.add(self.ml_tab, text="ML 訊號")
+        self.tabs.add(self.fundamental_tab, text="基本股利")
         self.tabs.add(self.news_tab, text="相關新聞")
 
         self.chart_frame = ttk.Frame(self.chart_tab)
@@ -764,6 +930,16 @@ class StockAnalysisGui:
         self.ml_text.configure(yscrollcommand=ml_scroll.set)
         self.ml_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         ml_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.fundamental_text = tk.Text(
+            self.fundamental_tab,
+            wrap=tk.WORD,
+            font=("Noto Sans TC", 11),
+            padx=10,
+            pady=10,
+            height=10,
+        )
+        self.fundamental_text.pack(fill=tk.BOTH, expand=True)
 
         news_columns = ("title", "source", "published")
         self.news_table = ttk.Treeview(self.news_tab, columns=news_columns, show="headings")
@@ -889,6 +1065,7 @@ class StockAnalysisGui:
             raw_df = fetch_finmind_stock_price(symbol, self.finmind_key_var.get(), start_date, end_date)
             df = add_indicators(raw_df, rsi_period)
             ml_signal = train_ml_signal(df)
+            fundamental_info = fetch_fundamental_info(symbol, self.finmind_key_var.get())
             try:
                 news_items = fetch_market_news(symbol, self.name_var.get())
             except Exception as exc:
@@ -900,11 +1077,23 @@ class StockAnalysisGui:
                 rsi_period,
                 news_items,
                 ml_signal,
+                fundamental_info,
             )
         except Exception as exc:
             self.root.after(0, lambda: self._show_error(str(exc)))
             return
-        self.root.after(0, lambda: self._render_result(symbol, df, rsi_period, ai_report, news_items, ml_signal))
+        self.root.after(
+            0,
+            lambda: self._render_result(
+                symbol,
+                df,
+                rsi_period,
+                ai_report,
+                news_items,
+                ml_signal,
+                fundamental_info,
+            ),
+        )
 
     def _set_busy(self, busy: bool) -> None:
         self.root.config(cursor="watch" if busy else "")
@@ -924,21 +1113,30 @@ class StockAnalysisGui:
         ai_report: str,
         news_items: list[NewsItem],
         ml_signal: MLSignal,
+        fundamental_info: FundamentalInfo,
     ) -> None:
         self._set_busy(False)
         self.current_df = df
         self.current_news = news_items
         self.current_ml_signal = ml_signal
-        self._update_summary(symbol, df, rsi_period)
+        self.current_fundamental = fundamental_info
+        self._update_summary(symbol, df, rsi_period, fundamental_info)
         self._draw_chart(symbol, df, rsi_period)
         self._fill_table(df)
         self._fill_news(news_items)
         self._fill_ml_signal(ml_signal)
+        self._fill_fundamental(fundamental_info)
         self.ai_text.delete("1.0", tk.END)
         self.ai_text.insert(tk.END, ai_report)
         self.tabs.select(self.chart_tab)
 
-    def _update_summary(self, symbol: str, df: pd.DataFrame, rsi_period: int) -> None:
+    def _update_summary(
+        self,
+        symbol: str,
+        df: pd.DataFrame,
+        rsi_period: int,
+        fundamental_info: FundamentalInfo,
+    ) -> None:
         name = self.name_var.get().strip()
         start_price = float(df.iloc[0]["close"])
         end_price = float(df.iloc[-1]["close"])
@@ -955,6 +1153,7 @@ class StockAnalysisGui:
         self.summary_vars["rsi"].set(
             f"RSI({rsi_period}) {'資料不足' if pd.isna(latest_rsi) else f'{latest_rsi:.2f} {rsi_status(latest_rsi)}'}"
         )
+        self.summary_vars["fundamental"].set(format_fundamental_summary(fundamental_info))
         self.summary_vars["range"].set(
             f"{df.iloc[0]['date'].strftime('%Y-%m-%d')} - {df.iloc[-1]['date'].strftime('%Y-%m-%d')}"
         )
@@ -1069,6 +1268,36 @@ class StockAnalysisGui:
             ]
         )
         self.ml_text.insert(tk.END, detail)
+
+    def _fill_fundamental(self, info: FundamentalInfo) -> None:
+        self.fundamental_text.delete("1.0", tk.END)
+        lines = [
+            "EPS / 股利資訊",
+            "",
+            "EPS",
+            f"最新 EPS：{'資料不足' if info.eps is None else f'{info.eps:.2f}'}",
+            f"EPS 財報日期：{info.eps_date or '資料不足'}",
+            "",
+            "股利",
+            f"股利年度：{info.dividend_year or '資料不足'}",
+            f"現金股利：{'資料不足' if info.cash_dividend is None else f'{info.cash_dividend:.2f}'}",
+            f"股票股利：{'資料不足' if info.stock_dividend is None else f'{info.stock_dividend:.2f}'}",
+            f"預計發放月份：{info.cash_payment_month or '資料不足'}",
+            f"現金股利發放日：{info.cash_payment_date or '資料不足'}",
+            f"除息交易日：{info.cash_ex_dividend_date or '資料不足'}",
+            f"除權交易日：{info.stock_ex_dividend_date or '資料不足'}",
+            f"公告日期：{info.announcement_date or '資料不足'}",
+        ]
+        if info.message:
+            lines.extend(["", "備註", info.message])
+        lines.extend(
+            [
+                "",
+                "資料來源：FinMind TaiwanStockFinancialStatements / TaiwanStockDividend。",
+                "說明：EPS 為 FinMind 最新 EPS 欄位；股利以最新可用或未來發放資料為準。ETF 或海外代碼可能沒有 EPS 或股利政策資料。",
+            ]
+        )
+        self.fundamental_text.insert(tk.END, "\n".join(lines))
 
     def open_selected_news(self, _event: Any | None = None) -> None:
         selection = self.news_table.selection()
