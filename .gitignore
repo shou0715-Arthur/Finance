@@ -10,6 +10,7 @@ __pycache__/
 # Environment variables / secrets
 .env
 .env.*
+api-key.txt
 .streamlit/secrets.toml
 
 # IDE

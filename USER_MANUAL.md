@@ -45,10 +45,18 @@ dist\AIStockAnalysis.exe
 
 ## 3. API key 設定
 
-程式會讀取下列檔案：
+程式會讀取程式所在資料夾中的 `api-key.txt`。
+
+Python 版執行時，位置是：
 
 ```text
-C:\Users\shou0\PycharmProjects\api-key.txt
+api-key.txt
+```
+
+`.exe` 版執行時，位置是：
+
+```text
+dist\AIStockAnalysis\api-key.txt
 ```
 
 內容格式：
@@ -59,6 +67,8 @@ GEMINI_API_KEY=你的_Gemini_API_key
 ```
 
 FinMind key 用於抓台股資料。Gemini key 用於 AI 綜合分析；若未設定 Gemini key，程式仍可顯示圖表、ML 訊號、EPS、股利與新聞。
+
+首次使用時，`api-key.txt` 會是空白範本。請在 GUI 內輸入 FinMind / Gemini key 後按「儲存 Key」，程式會寫入同一個 `api-key.txt`，下次執行會自動載入。請不要把這個檔案上傳到 GitHub。
 
 ## 4. FinMind API key 申請
 

@@ -31,7 +31,7 @@ from tkinter import messagebox, ttk
 APP_VERSION = "v1.6"
 FINMIND_API_URL = "https://api.finmindtrade.com/api/v4/data"
 GOOGLE_NEWS_RSS_URL = "https://news.google.com/rss/search"
-API_KEY_FILE = Path(r"C:\Users\shou0\PycharmProjects\api-key.txt")
+API_KEY_FILE = PROJECT_ROOT / "api-key.txt"
 WATCHLIST_FILE = PROJECT_ROOT / "watchlist.json"
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 APP_BG = "#f5f7fb"
@@ -749,6 +749,8 @@ class StockAnalysisGui:
         self.finmind_key_var = tk.StringVar(value=self.keys.finmind_api_key)
         self.gemini_key_var = tk.StringVar(value=self.keys.gemini_api_key)
         self.status_var = tk.StringVar(value=self._key_status_text())
+        self.progress_var = tk.IntVar(value=0)
+        self.progress_text_var = tk.StringVar(value="待命 0%")
 
         self.summary_vars = {
             "title": tk.StringVar(value="尚未查詢"),
@@ -853,7 +855,8 @@ class StockAnalysisGui:
         ttk.Label(panel, text="RSI").grid(row=0, column=4, sticky=tk.W)
         ttk.Spinbox(panel, from_=2, to=60, textvariable=self.rsi_var, width=6).grid(row=1, column=4, sticky=tk.W, padx=(0, 12))
 
-        ttk.Button(panel, text="查詢分析", command=self.start_analysis, style="Accent.TButton").grid(row=1, column=5, padx=(0, 8))
+        self.analyze_button = ttk.Button(panel, text="查詢分析", command=self.start_analysis, style="Accent.TButton")
+        self.analyze_button.grid(row=1, column=5, padx=(0, 8))
         ttk.Button(panel, text="儲存為自選", command=self.save_current_symbol_to_watchlist).grid(row=1, column=6, padx=(0, 8))
         ttk.Button(panel, text="儲存 Key", command=self.save_keys_from_gui).grid(row=1, column=7)
 
@@ -863,6 +866,15 @@ class StockAnalysisGui:
         ttk.Entry(key_row, textvariable=self.finmind_key_var, width=44, show="*").pack(side=tk.LEFT, padx=(6, 16))
         ttk.Label(key_row, text="Gemini").pack(side=tk.LEFT)
         ttk.Entry(key_row, textvariable=self.gemini_key_var, width=44, show="*").pack(side=tk.LEFT, padx=(6, 0))
+
+        progress_row = ttk.Frame(panel)
+        progress_row.grid(row=3, column=0, columnspan=8, sticky=tk.EW, pady=(10, 0))
+        progress_row.columnconfigure(0, weight=1)
+        self.progress_bar = ttk.Progressbar(progress_row, maximum=100, mode="determinate", variable=self.progress_var)
+        self.progress_bar.grid(row=0, column=0, sticky=tk.EW)
+        ttk.Label(progress_row, textvariable=self.progress_text_var, width=30, anchor=tk.E).grid(
+            row=0, column=1, sticky=tk.E, padx=(12, 0)
+        )
 
     def _build_summary_panel(self, parent: ttk.Frame) -> None:
         panel = ttk.LabelFrame(parent, text="總覽", padding=10)
@@ -1055,6 +1067,7 @@ class StockAnalysisGui:
             return
 
         self._set_busy(True)
+        self._set_progress(0, "準備分析")
         self.ai_text.delete("1.0", tk.END)
         self.ai_text.insert(tk.END, "資料讀取與分析中...\n")
         worker = threading.Thread(
@@ -1066,14 +1079,20 @@ class StockAnalysisGui:
 
     def _run_analysis_worker(self, symbol: str, start_date: date, end_date: date, rsi_period: int) -> None:
         try:
+            self._queue_progress(8, "下載 FinMind 價格資料")
             raw_df = fetch_finmind_stock_price(symbol, self.finmind_key_var.get(), start_date, end_date)
+            self._queue_progress(24, "計算技術指標")
             df = add_indicators(raw_df, rsi_period)
+            self._queue_progress(40, "ML 訊號建模")
             ml_signal = train_ml_signal(df)
+            self._queue_progress(58, "讀取 EPS / 股利")
             fundamental_info = fetch_fundamental_info(symbol, self.finmind_key_var.get())
             try:
+                self._queue_progress(72, "搜尋相關新聞")
                 news_items = fetch_market_news(symbol, self.name_var.get())
             except Exception as exc:
                 news_items = [NewsItem(title=f"新聞搜尋失敗：{exc}", source="System", published="", link="")]
+            self._queue_progress(84, "AI 綜合分析")
             ai_report = generate_ai_insights(
                 symbol,
                 df,
@@ -1083,6 +1102,7 @@ class StockAnalysisGui:
                 ml_signal,
                 fundamental_info,
             )
+            self._queue_progress(96, "整理分析結果")
         except Exception as exc:
             self.root.after(0, lambda: self._show_error(str(exc)))
             return
@@ -1101,10 +1121,25 @@ class StockAnalysisGui:
 
     def _set_busy(self, busy: bool) -> None:
         self.root.config(cursor="watch" if busy else "")
+        if hasattr(self, "analyze_button"):
+            self.analyze_button.configure(state=tk.DISABLED if busy else tk.NORMAL)
         self.status_var.set("分析中..." if busy else self._key_status_text())
+
+    def _set_progress(self, percent: int, stage: str) -> None:
+        percent = max(0, min(100, int(percent)))
+        self.progress_var.set(percent)
+        self.progress_text_var.set(f"{stage} {percent}%")
+        if stage == "分析失敗":
+            self.status_var.set("分析失敗")
+        elif percent < 100:
+            self.status_var.set(f"分析中：{stage} {percent}%")
+
+    def _queue_progress(self, percent: int, stage: str) -> None:
+        self.root.after(0, lambda: self._set_progress(percent, stage))
 
     def _show_error(self, message: str) -> None:
         self._set_busy(False)
+        self._set_progress(0, "分析失敗")
         self.ai_text.delete("1.0", tk.END)
         self.ai_text.insert(tk.END, message)
         messagebox.showerror("分析失敗", message)
@@ -1119,6 +1154,7 @@ class StockAnalysisGui:
         ml_signal: MLSignal,
         fundamental_info: FundamentalInfo,
     ) -> None:
+        self._set_progress(100, "完成")
         self._set_busy(False)
         self.current_df = df
         self.current_news = news_items

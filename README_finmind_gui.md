@@ -18,10 +18,18 @@ python .\AI-stock.py
 
 ## API key 檔案
 
-程式會讀取下列檔案：
+程式會讀取程式所在資料夾中的 `api-key.txt`。
+
+Python 版執行時，位置是：
 
 ```text
-C:\Users\shou0\PycharmProjects\api-key.txt
+api-key.txt
+```
+
+`.exe` 版執行時，位置是：
+
+```text
+dist\AIStockAnalysis\api-key.txt
 ```
 
 建議內容：
@@ -31,7 +39,7 @@ FINMIND_API_KEY=你的_FinMind_token
 GEMINI_API_KEY=你的_Gemini_key
 ```
 
-如果檔案不存在，程式啟動時會嘗試建立範本。GUI 內也可以輸入 key 後按「儲存 Key」寫回同一個檔案。
+如果檔案不存在，程式啟動時會嘗試建立空白範本。GUI 內可以輸入 key 後按「儲存 Key」寫回同一個檔案，下次啟動會自動載入。請不要把 `api-key.txt` 上傳到 GitHub。
 
 ## 資料來源
 
