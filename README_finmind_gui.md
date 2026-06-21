@@ -1,6 +1,6 @@
 # AI 台股技術分析 GUI
 
-版本：v1.6
+版本：v1.7
 
 這個版本改用 FinMind 台股日成交資料，並以桌面 GUI 執行，不再啟動 Streamlit 網站。
 
@@ -53,6 +53,9 @@ https://api.finmindtrade.com/api/v4/data
 
 ```text
 TaiwanStockPrice
+TaiwanStockFinancialStatements
+TaiwanStockDividend
+TaiwanStockMonthRevenue
 ```
 
 主要欄位轉換：
@@ -67,6 +70,10 @@ TaiwanStockPrice
 - 左側自選清單，可儲存自訂股票或 ETF 代碼
 - 自選清單儲存在 `watchlist.json`
 - 總覽、走勢圖、歷史資料、AI 綜合分析、ML 訊號、基本股利、相關新聞分頁
+- AI 供應鏈候選頁籤，涵蓋 CPO、NVIDIA AI 系統、ABF、Glass 載板、被動元件與矽電容
+- 產業候選依證據分為 A／B／C，分級代表研究證據強弱，不是投資建議
+- 短線 ML 預測下一交易日方向，中期潛力 ML 預測未來 20 日是否勝過 0050
+- ML 加入 0050 與同業籃子的相對強弱特徵；月營收與新聞由 Gemini 解讀，不直接放入 ML
 - 每次查詢會同步搜尋該股市場新聞
 - 每次查詢會同步抓取最新 EPS、預計股息發放月份與股息金額
 - AI 綜合分析整合技術面、新聞、Public Equity Investing 視角、輕量 Investment Banking 視角與 ML 訊號
@@ -77,6 +84,7 @@ TaiwanStockPrice
 - RSI 超買 / 超賣狀態
 - 歷史資料表
 - Gemini AI 教育性技術分析
+- Gemini 模型：gemini-3.5-flash
 
 ## GitHub 同步
 

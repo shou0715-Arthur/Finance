@@ -1,4 +1,4 @@
-# AI 台股技術分析 v1.6 使用手冊
+# AI 台股技術分析 v1.7 使用手冊
 
 ## 1. 程式用途
 
@@ -12,6 +12,9 @@
 - 最新 EPS
 - 現金股利、股票股利、預計發放月份、除息日
 - ML 漲跌訊號
+- AI 供應鏈候選清單與證據分級
+- 短線 ML 漲跌訊號
+- 中期 20 日勝過 0050 的潛力 ML 訊號
 - 相關新聞
 - AI 綜合分析
 
@@ -87,6 +90,7 @@ FINMIND_API_KEY=你的_token
 - `TaiwanStockPrice`：台股日成交資料
 - `TaiwanStockFinancialStatements`：EPS
 - `TaiwanStockDividend`：股利政策
+- TaiwanStockMonthRevenue：月營收
 
 ## 5. Gemini API key 申請
 
@@ -117,12 +121,15 @@ Google 文件說明，Gemini API 正在從 Standard API key 轉到 Authorization
 
 ## 6. 操作流程
 
+AI 綜合分析使用 gemini-3.5-flash。候選分級及模型結果只供研究參考，不構成投資建議。
+
 1. 開啟程式。
 2. 從左側自選清單選股票，或手動輸入代碼。
 3. 設定起始日期、結束日期與 RSI 週期。
 4. 點選「查詢分析」。
 5. 查看各分頁：
    - `走勢圖`
+   - AI 供應鏈
    - `歷史資料`
    - `AI 綜合分析`
    - `ML 訊號`

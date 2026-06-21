@@ -37,6 +37,9 @@ if ($exitCode -eq 0 -and (Test-Path ".\dist\AIStockAnalysis")) {
     if (Test-Path ".\watchlist.json") {
         Copy-Item -Path ".\watchlist.json" -Destination ".\dist\AIStockAnalysis\watchlist.json" -Force
     }
+    if (Test-Path ".\industry_chain.json") {
+        Copy-Item -Path ".\industry_chain.json" -Destination ".\dist\AIStockAnalysis\industry_chain.json" -Force
+    }
 }
 
 exit $exitCode

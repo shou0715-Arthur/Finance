@@ -8,13 +8,17 @@ $files = @(
     ".gitignore",
     "AI-stock.py",
     "ai_stock_gui.py",
+    "build_exe.ps1",
+    "industry_chain.json",
+    "USER_MANUAL.md",
     "README_finmind_gui.md",
     "VERSION",
     "requirements.txt",
     "run_ai_stock.bat",
     "run_ai_stock.ps1",
     "watchlist.json",
-    "sync_to_github.ps1"
+    "sync_to_github.ps1",
+    "tests/test_ai_stock_gui.py"
 )
 
 $missing = @()

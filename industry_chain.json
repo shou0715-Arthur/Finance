@@ -1,0 +1,249 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-06-20",
+  "disclaimer": "候選分級只代表研究證據強弱，不構成投資建議。",
+  "themes": [
+    "CPO與高速光通訊",
+    "NVIDIA AI系統",
+    "ABF載板",
+    "Glass載板",
+    "被動元件",
+    "矽電容"
+  ],
+  "candidates": [
+    {
+      "symbol": "2330",
+      "name": "台積電",
+      "theme": "CPO與高速光通訊",
+      "evidence_level": "A",
+      "exposure": "NVIDIA官方CPO生態系列名，實際營收占比仍需量化。",
+      "first_rejection": "CPO量產延後，或相關業務對公司營收仍不具實質性。",
+      "source_url": "https://nvidianews.nvidia.com/news/nvidia-spectrum-x-co-packaged-optics-networking-switches-ai-factories"
+    },
+    {
+      "symbol": "3163",
+      "name": "波若威",
+      "theme": "CPO與高速光通訊",
+      "evidence_level": "A",
+      "exposure": "NVIDIA官方CPO生態系列名。",
+      "first_rejection": "客戶驗證未轉為量產訂單或毛利率未改善。",
+      "source_url": "https://nvidianews.nvidia.com/news/nvidia-spectrum-x-co-packaged-optics-networking-switches-ai-factories"
+    },
+    {
+      "symbol": "2317",
+      "name": "鴻海",
+      "theme": "CPO與高速光通訊",
+      "evidence_level": "A",
+      "exposure": "NVIDIA官方CPO生態系列名；仍需確認CPO對集團營收的重要性。",
+      "first_rejection": "CPO僅為合作展示，未形成可量化收入。",
+      "source_url": "https://nvidianews.nvidia.com/news/nvidia-spectrum-x-co-packaged-optics-networking-switches-ai-factories"
+    },
+    {
+      "symbol": "3711",
+      "name": "日月光投控",
+      "theme": "CPO與高速光通訊",
+      "evidence_level": "A",
+      "exposure": "NVIDIA官方生態系列名SPIL，透過集團關係追蹤。",
+      "first_rejection": "SPIL相關封裝未形成集團可辨識的營收與獲利貢獻。",
+      "source_url": "https://nvidianews.nvidia.com/news/nvidia-spectrum-x-co-packaged-optics-networking-switches-ai-factories"
+    },
+    {
+      "symbol": "3363",
+      "name": "上詮",
+      "theme": "CPO與高速光通訊",
+      "evidence_level": "C",
+      "exposure": "市場列為光通訊候選，尚需官方客戶與量產證據。",
+      "first_rejection": "題材未轉成訂單、營收或毛利率改善。",
+      "source_url": ""
+    },
+    {
+      "symbol": "6442",
+      "name": "光聖",
+      "theme": "CPO與高速光通訊",
+      "evidence_level": "C",
+      "exposure": "高速光通訊曝險待公司資料量化。",
+      "first_rejection": "AI相關營收占比無法證實。",
+      "source_url": ""
+    },
+    {
+      "symbol": "3081",
+      "name": "聯亞",
+      "theme": "CPO與高速光通訊",
+      "evidence_level": "C",
+      "exposure": "光通訊元件能力存在，但CPO直接曝險待驗證。",
+      "first_rejection": "產品組合未受益於CPO量產。",
+      "source_url": ""
+    },
+    {
+      "symbol": "3450",
+      "name": "聯鈞",
+      "theme": "CPO與高速光通訊",
+      "evidence_level": "C",
+      "exposure": "光通訊題材候選，直接供應鏈證據不足。",
+      "first_rejection": "訂單與獲利未跟隨題材成長。",
+      "source_url": ""
+    },
+    {
+      "symbol": "4979",
+      "name": "華星光",
+      "theme": "CPO與高速光通訊",
+      "evidence_level": "C",
+      "exposure": "高速光通訊候選，CPO量產收入待驗證。",
+      "first_rejection": "產品認證未轉成規模營收。",
+      "source_url": ""
+    },
+    {
+      "symbol": "2382",
+      "name": "廣達",
+      "theme": "NVIDIA AI系統",
+      "evidence_level": "B",
+      "exposure": "列入NVIDIA台灣系統製造生態系；需量化AI伺服器增量。",
+      "first_rejection": "AI伺服器營收成長未帶動毛利與EPS。",
+      "source_url": "https://nvidianews.nvidia.com/news/vera-rubin-full-production-agentic-ai-factory"
+    },
+    {
+      "symbol": "3231",
+      "name": "緯創",
+      "theme": "NVIDIA AI系統",
+      "evidence_level": "B",
+      "exposure": "列入NVIDIA台灣系統製造生態系。",
+      "first_rejection": "高營收成長未轉為獲利與現金流。",
+      "source_url": "https://nvidianews.nvidia.com/news/vera-rubin-full-production-agentic-ai-factory"
+    },
+    {
+      "symbol": "6669",
+      "name": "緯穎",
+      "theme": "NVIDIA AI系統",
+      "evidence_level": "B",
+      "exposure": "AI伺服器系統候選，需追蹤新平台量產與客戶集中。",
+      "first_rejection": "平台轉換造成出貨延後或毛利率下降。",
+      "source_url": "https://nvidianews.nvidia.com/news/vera-rubin-full-production-agentic-ai-factory"
+    },
+    {
+      "symbol": "2357",
+      "name": "華碩",
+      "theme": "NVIDIA AI系統",
+      "evidence_level": "B",
+      "exposure": "列入NVIDIA台灣系統製造生態系。",
+      "first_rejection": "AI系統對整體營收與獲利不具實質性。",
+      "source_url": "https://nvidianews.nvidia.com/news/vera-rubin-full-production-agentic-ai-factory"
+    },
+    {
+      "symbol": "2376",
+      "name": "技嘉",
+      "theme": "NVIDIA AI系統",
+      "evidence_level": "B",
+      "exposure": "列入NVIDIA台灣系統製造生態系。",
+      "first_rejection": "AI伺服器需求或毛利率不如市場預期。",
+      "source_url": "https://nvidianews.nvidia.com/news/vera-rubin-full-production-agentic-ai-factory"
+    },
+    {
+      "symbol": "4938",
+      "name": "和碩",
+      "theme": "NVIDIA AI系統",
+      "evidence_level": "B",
+      "exposure": "列入NVIDIA台灣系統製造生態系。",
+      "first_rejection": "新業務未形成可量化的營收與獲利貢獻。",
+      "source_url": "https://nvidianews.nvidia.com/news/vera-rubin-full-production-agentic-ai-factory"
+    },
+    {
+      "symbol": "3037",
+      "name": "欣興",
+      "theme": "ABF載板",
+      "evidence_level": "A",
+      "exposure": "公司官方產品包含FCBGA；AI與高階ABF營收占比仍需量化。",
+      "first_rejection": "高階載板稼動率、良率或價格未改善。",
+      "source_url": "https://www.unimicron.com/en/product_FCBGA.html"
+    },
+    {
+      "symbol": "3189",
+      "name": "景碩",
+      "theme": "ABF載板",
+      "evidence_level": "B",
+      "exposure": "公司官方產品包含FCBGA，需追蹤AI相關產品組合。",
+      "first_rejection": "FCBGA需求復甦未反映在毛利率與EPS。",
+      "source_url": "https://www.kinsus.com.tw/en-global/Product/product/Detail/en_FCBGA"
+    },
+    {
+      "symbol": "8046",
+      "name": "南電",
+      "theme": "ABF載板",
+      "evidence_level": "B",
+      "exposure": "ABF載板研究候選，需確認高階AI載板營收與稼動率。",
+      "first_rejection": "庫存、價格或稼動率持續疲弱。",
+      "source_url": "https://www.nanyapcb.com.tw/"
+    },
+    {
+      "symbol": "3481",
+      "name": "群創",
+      "theme": "Glass載板",
+      "evidence_level": "C",
+      "exposure": "需區分玻璃載具、面板級封裝與最終Glass Core Substrate。",
+      "first_rejection": "沒有TGV、RDL、客戶驗證、量產時間或營收證據。",
+      "source_url": ""
+    },
+    {
+      "symbol": "1802",
+      "name": "台玻",
+      "theme": "Glass載板",
+      "evidence_level": "C",
+      "exposure": "玻璃材料能力不等於已進入半導體Glass Core Substrate供應鏈。",
+      "first_rejection": "半導體級產品未通過客戶驗證或未形成收入。",
+      "source_url": ""
+    },
+    {
+      "symbol": "2327",
+      "name": "國巨",
+      "theme": "被動元件",
+      "evidence_level": "B",
+      "exposure": "產品涵蓋電容、電阻、電感等；需量化AI伺服器高階產品占比。",
+      "first_rejection": "AI單機用量增加未轉化為產品組合與毛利率改善。",
+      "source_url": "https://www.yageo.com/en/Product"
+    },
+    {
+      "symbol": "2492",
+      "name": "華新科",
+      "theme": "被動元件",
+      "evidence_level": "B",
+      "exposure": "MLCC與被動元件候選，需確認AI伺服器認證與營收占比。",
+      "first_rejection": "需求仍以消費性與景氣循環復甦為主。",
+      "source_url": ""
+    },
+    {
+      "symbol": "6449",
+      "name": "鈺邦",
+      "theme": "被動元件",
+      "evidence_level": "B",
+      "exposure": "固態電容與電源應用候選，不等同矽電容。",
+      "first_rejection": "AI電源需求未帶動高階產品營收與毛利。",
+      "source_url": ""
+    },
+    {
+      "symbol": "2472",
+      "name": "立隆電",
+      "theme": "被動元件",
+      "evidence_level": "C",
+      "exposure": "電解電容候選，AI伺服器營收占比待驗證。",
+      "first_rejection": "AI曝險無法量化。",
+      "source_url": ""
+    },
+    {
+      "symbol": "2375",
+      "name": "凱美",
+      "theme": "被動元件",
+      "evidence_level": "C",
+      "exposure": "被動元件候選，需官方資料證明AI產品組合。",
+      "first_rejection": "營收成長主要來自一般景氣循環。",
+      "source_url": ""
+    },
+    {
+      "symbol": "3026",
+      "name": "禾伸堂",
+      "theme": "被動元件",
+      "evidence_level": "C",
+      "exposure": "MLCC與相關元件候選，AI營收實質性待驗證。",
+      "first_rejection": "高階AI應用未形成可辨識收入。",
+      "source_url": ""
+    }
+  ]
+}
