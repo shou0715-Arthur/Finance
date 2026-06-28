@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ai_stock_gui import main
+from app.ai_stock_gui import main
 
 
 if __name__ == "__main__":

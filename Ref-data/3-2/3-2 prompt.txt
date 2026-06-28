@@ -1,0 +1,167 @@
+System prompt:
+你是一位專業的財務分析師，精通財報分析和投資評估
+
+User prompt:
+請使用以下四階段分析法，對提供的財務數據進行完整的分析。
+
+### 分析架構：四階段財報分析法
+## 階段一：Piotroski F-Score 分析（滿分9分）
+
+請按照以下9個指標逐一計算和評分：
+### 獲利能力指標（4項）
+1. **ROA > 0**：
+   - 計算公式：ROA = netincomeloss（淨利潤）/ assets（總資產）
+   - 如果ROA > 0，得1分，否則0分
+   - 請顯示具體數值和計算過程
+
+2. **營運現金流 > 0**：
+   - 使用數據：netcashprovidedbyusedinoperatingactivities
+   - 如果 > 0，得1分，否則0分
+
+3. **ROA年增率 > 0**：
+   - 計算今年ROA - 去年ROA
+   - 如果增長，得1分，否則0分
+   - 請比較最近兩年數據
+
+4. **營運現金流 > 淨利潤**：
+   - 比較 netcashprovidedbyusedinoperatingactivities vs netincomeloss
+   - 如果營運現金流更高，得1分，否則0分
+
+### 槓桿與流動性指標（3項）
+5. **長期負債比率下降**：
+   - 計算公式：longtermdebtnoncurrent / assets
+   - 比較今年vs去年，如果下降得1分
+
+6. **流動比率上升**：
+   - 計算公式：assetscurrent（流動資產）/ liabilitiescurrent（流動負債）
+   - 比較今年vs去年，如果上升得1分
+
+7. **股份未稀釋**：
+   - 使用：weightedaveragenumberofsharesoutstandingbasic
+   - 如果流通股數未增加或減少，得1分
+
+### 營運效率指標（2項）
+8. **毛利率上升**：
+   - 計算公式：grossprofit / revenues
+   - 比較今年vs去年，如果上升得1分
+
+9. **資產周轉率上升**：
+   - 計算公式：revenues / assets
+   - 比較今年vs去年，如果上升得1分
+
+**請以表格形式總結9項指標的得分情況**
+
+## 階段二：Altman Z-Score 分析
+使用完整的Altman Z-Score公式：
+Z = 1.2×A + 1.4×B + 3.3×C + 0.6×D + 1.0×E
+
+### 各項目計算步驟：
+**A項：營運資本/總資產**
+- 營運資本 = assetscurrent - liabilitiescurrent
+- A = 營運資本 / assets
+- 顯示：1.2 × A = ?
+
+**B項：保留盈餘/總資產**
+- 使用：retainedearningsaccumulateddeficit / assets
+- 顯示：1.4 × B = ?
+
+**C項：EBIT/總資產**
+- EBIT = operatingincomeloss + interestexpensenonoperating
+- 或使用：incomelossfromcontinuingoperationsbeforeincometaxes + interestexpensenonoperating
+- 顯示：3.3 × C = ?
+
+**D項：市值/總負債**
+- 市值使用：marketCapitalization（來自enterprise-values或profile數據）
+- 總負債：liabilities
+- 顯示：0.6 × D = ?
+
+**E項：營收/總資產**
+- revenues / assets
+- 顯示：1.0 × E = ?
+
+**最終Z-Score計算**：
+- Z = (1.2×A) + (1.4×B) + (3.3×C) + (0.6×D) + (1.0×E)
+- 判斷標準：
+  - Z > 2.99：安全區域
+  - 1.81 < Z < 2.99：灰色區域
+  - Z < 1.81：危險區域
+
+## 階段三：杜邦分析
+### ROE三因子分解
+**基本公式**：ROE = 淨利率 × 資產周轉率 × 權益乘數
+
+### 計算步驟：
+1. **淨利率**：
+   - 公式：netincomeloss / revenues
+   - 單位：百分比
+
+2. **資產周轉率**：
+   - 公式：revenues / assets
+   - 表示每1元資產產生多少營收
+
+3. **權益乘數**：
+   - 公式：assets / stockholdersequity
+   - 表示財務槓桿程度
+
+4. **ROE驗證**：
+   - 計算：淨利率 × 資產周轉率 × 權益乘數
+   - 驗證：netincomeloss / stockholdersequity
+   - 兩者應該相等
+
+### 趨勢分析：
+請製作三年趨勢表格，分析各因子變化：
+- 哪個因子是ROE增長的主要驅動力？
+- 財務槓桿水準是否合理？
+- 獲利能力和營運效率如何？
+
+## 階段四：現金流量分析
+### 關鍵指標計算：
+1. **營運現金流品質**：
+   - 公式：netcashprovidedbyusedinoperatingactivities / netincomeloss
+   - 理想比值：> 1.2
+   - 如果 < 1，需分析原因
+
+2. **自由現金流**：
+   - 公式：營運現金流 - paymentstoacquireproductiveassets（資本支出）
+   - 或使用：營運現金流 - purchasesofpropertyandequipmentandintangibleassets
+   - 趨勢：是否持續為正且增長
+
+3. **現金流結構分析**：
+   - 分析營運現金流的組成
+   - 識別主要的現金流變動因素
+   - 評估現金流的可持續性
+
+## 綜合評估要求
+### 1. 四階段評分總結表格
+| 分析階段 | 評分/狀態 | 評價 | 主要發現 |
+|----------|-----------|------|----------|
+| Piotroski F-Score | X/9分 | 優秀/良好/一般 | ... |
+| Altman Z-Score | X.XX | 安全/灰色/危險 | ... |
+| 杜邦分析 | ROE X% | 卓越/良好/一般 | ... |
+| 現金流分析 | 評價 | 優秀/良好/需關注 | ... |
+
+### 2. 分析結論
+基於四階段分析結果，提供：
+- **主要優勢**：列出3-5個關鍵優勢
+- **風險因素**：列出需要關注的風險點
+- **後續追蹤重點**：投資後需要監控的關鍵指標
+
+### 3. 分析要求
+- 所有計算過程必須顯示具體數字
+- 使用表格整理複雜數據
+- 每個結論都要有數據支撐
+- 如果資料缺漏請提出，不要生成假資料計算
+
+## 請使用以下財務數據進行四階段分析：
+
+【財務報表數據】
+[financial-statement-full-as-reported.json 內容]
+
+【企業價值數據】
+[enterprise-values.json 內容]
+
+【公司基本資料】
+[profile.json 內容]
+
+分析目標公司：[公司名稱]
+分析期間：[起始年份] - [結束年份]

@@ -1,0 +1,467 @@
+{
+  "name": "3-4",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b562d95f-cf33-4246-954d-4556899d3a69",
+              "name": "stock",
+              "value": "[{ \"code\": \"NVDA\", \"market\": \"USA\" },{ \"code\": \"2330\", \"market\": \"TW\" }]",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        352,
+        48
+      ],
+      "id": "a5db77f0-16de-4639-9552-a683ded04b65",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        800,
+        48
+      ],
+      "id": "b19faf94-0c5d-40da-98e8-9626b78f3ea7",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "02e0b852-2465-4607-b71b-5d65cf8415f4",
+                    "leftValue": "={{ $json.market }}",
+                    "rightValue": "USA",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "USA"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "5c1d522e-b553-4193-ba9f-3d85c7f5e672",
+                    "leftValue": "={{ $json.market }}",
+                    "rightValue": "TW",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "TW"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1088,
+        48
+      ],
+      "id": "cff62417-e0a4-4357-be5c-3bbe899c3893",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "url": "=https://financialmodelingprep.com/stable/historical-price-eod/full",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "apikey"
+            },
+            {
+              "name": "from",
+              "value": "={{ $now.setZone('Asia/Tokyo').minus({ days: 120 }).toFormat('yyyy-MM-dd') }}"
+            },
+            {
+              "name": "to",
+              "value": "={{ $now.toFormat('yyyy-MM-dd') }}"
+            },
+            {
+              "name": "symbol",
+              "value": "={{ $json.code }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1328,
+        -48
+      ],
+      "id": "8dea883f-fdf3-4d22-90f4-1a4e9a52dd04",
+      "name": "FMP"
+    },
+    {
+      "parameters": {
+        "url": "https://api.finmindtrade.com/api/v4/data",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "dataset",
+              "value": "TaiwanStockPrice"
+            },
+            {
+              "name": "data_id",
+              "value": "={{ $json.code }}"
+            },
+            {
+              "name": "start_date",
+              "value": "={{ $now.setZone('Asia/Tokyo').minus({ days: 120 }).toFormat('yyyy-MM-dd') }}"
+            },
+            {
+              "name": "token"
+            },
+            {
+              "name": "end_date",
+              "value": "={{ $now.toFormat('yyyy-MM-dd') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1328,
+        144
+      ],
+      "id": "ba2948b4-b461-46fe-a641-029f0d6d8ef7",
+      "name": "FinMind"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "stock",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        560,
+        48
+      ],
+      "id": "e86ca47a-cdb7-4427-856e-ee7915214057",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=請針對股票代碼 {{ $json.code }} 進行綜合分析，步驟如下：\n\n【第一步：新聞資訊搜集】\n使用Perplexity工具搜尋該股票近1-2週的重要新聞，重點關注：\n- 公司營運相關消息（財報、業績、產品發布等）\n- 行業趨勢變化\n- 市場情緒影響因素\n- 重大政策或事件影響\n\n【第二步：技術分析】\n基於提供的股價數據進行技術分析：\n股價數據：{{ $json.prices }}\n\n請分析以下技術指標：\n- 價格趨勢：短期、中期趨勢方向\n- 支撐阻力：關鍵價位分析\n- 量價關係：成交量與價格的配合情況\n- 波動性：近期價格波動程度評估\n\n【第三步：整合分析】\n結合新聞面和技術面，提供以下分析：\n\n1. **市場情緒評估**：當前市場對該股票的情緒傾向\n2. **關鍵影響因素**：影響股價的主要驅動力\n3. **風險提醒**：需要關注的潛在風險點\n4. **後續觀察重點**：投資者應持續關注的指標或事件\n\n【輸出格式要求】\n請以結構化方式呈現分析結果，包含：\n- 📰 新聞摘要（2-3個重點）\n- 📊 技術分析重點\n- 🎯 綜合評估\n- ⚠️ 風險提醒\n\n**重要提醒**：本分析純供教育用途，不構成任何投資建議。投資決策請自行承擔風險。",
+        "options": {
+          "systemMessage": "你是一位資深的股票分析師，具備豐富的技術分析和基本面分析經驗。你的分析風格客觀、專業，善於整合多元資訊提供深度見解。\n\n分析原則：\n1. 客觀中立：基於數據和事實進行分析，避免主觀推測\n2. 多角度思考：結合技術面、基本面和市場情緒面\n3. 風險意識：適當提醒潛在風險和不確定性\n4. 教育導向：所有分析僅供教育和學習用途，不構成投資建議\n\n請使用繁體中文回覆，保持專業但易懂的表達方式。"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        160
+      ],
+      "id": "40cd1a87-014b-440f-81c7-0511ce8b2d3e",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1728,
+        400
+      ],
+      "id": "538e486e-cf14-443c-9f75-e142eb184020",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "9SYClqK2JoqoAFvE",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 檢查第一個 item 來判斷資料類型\nconst firstItem = items[0].json;\n\n// 處理 FMP API 回傳的資料 (美股) - 新格式\nif (firstItem.symbol && firstItem.date && firstItem.open !== undefined && !firstItem.stock_id) {\n  const pricesData = items.map(item => ({\n    date: item.json.date,\n    open: item.json.open,\n    high: item.json.high,\n    low: item.json.low,\n    close: item.json.close,\n    volume: item.json.volume\n  }));\n  \n  return [{\n    json: {\n      code: firstItem.symbol,\n      market: \"USA\",\n      prices: JSON.stringify(pricesData)\n    }\n  }];\n}\n\n// 處理 FinMind API 回傳的資料 (台股) - 保持原樣\nreturn items.map(item => {\n  if (item.json.data && item.json.data.length > 0) {\n    const pricesData = item.json.data.map(day => ({\n      date: day.date,\n      open: day.open,\n      high: day.max,\n      low: day.min,\n      close: day.close,\n      volume: day.Trading_Volume\n    }));\n    \n    return {\n      json: {\n        code: item.json.data[0].stock_id,\n        market: \"TW\",\n        prices: JSON.stringify(pricesData)\n      }\n    };\n  }\n  \n  return { json: {} };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1552,
+        80
+      ],
+      "id": "368d9d9a-0710-44cb-9376-e11b0f4d0c22",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "model": "sonar",
+        "messages": {
+          "message": [
+            {
+              "content": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('message0_Text', ``, 'string') }}"
+            }
+          ]
+        },
+        "options": {},
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.perplexityTool",
+      "typeVersion": 1,
+      "position": [
+        2032,
+        400
+      ],
+      "id": "45a32fea-b60a-4ec3-81bd-b020d069a766",
+      "name": "Message a model in Perplexity",
+      "credentials": {
+        "perplexityApi": {
+          "id": "4LBHLbwr0mVMfd4a",
+          "name": "Perplexity account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1072,
+        -176
+      ],
+      "id": "b943ebb2-218e-4069-90ee-ff52cdb1a18f",
+      "name": "Send a text message",
+      "webhookId": "2cd56bd4-1e41-4998-939f-f624c464b257",
+      "credentials": {
+        "telegramApi": {
+          "id": "ItP74dWZ3ris32YF",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        128,
+        48
+      ],
+      "id": "a1708f80-4f04-425f-a5c7-f6ba1dd08ca5",
+      "name": "Schedule Trigger"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "FMP",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "FinMind",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FMP": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FinMind": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model in Perplexity": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "8badd6ba-095c-4e8b-9ce2-b28a0a03a1d4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1ba08afc1dd59121b2c41e37c22d133ddad3ab99d97b7fa1a3dcf3f57469899c"
+  },
+  "id": "aASGqcFy2ooZ4Ke3",
+  "tags": []
+}

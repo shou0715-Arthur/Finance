@@ -11,6 +11,7 @@ __pycache__/
 .env
 .env.*
 api-key.txt
+config/api-key.txt
 .streamlit/secrets.toml
 
 # IDE

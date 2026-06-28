@@ -1,0 +1,603 @@
+{
+  "name": "5-4(v2)",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b562d95f-cf33-4246-954d-4556899d3a69",
+              "name": "stock",
+              "value": "[{ \"code\": \"NVDA\", \"market\": \"USA\" }]",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -720,
+        224
+      ],
+      "id": "c97808f9-4255-4375-9164-7fc2b191c78f",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -272,
+        224
+      ],
+      "id": "960faf6b-f9df-4447-900f-ca5fe2a5c82c",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "02e0b852-2465-4607-b71b-5d65cf8415f4",
+                    "leftValue": "={{ $json.market }}",
+                    "rightValue": "USA",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "USA"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "5c1d522e-b553-4193-ba9f-3d85c7f5e672",
+                    "leftValue": "={{ $json.market }}",
+                    "rightValue": "TW",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "TW"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        16,
+        224
+      ],
+      "id": "b162a17a-6cd8-4bfc-bff2-fd0d2f9733f8",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "url": "=https://financialmodelingprep.com/stable/historical-price-eod/full",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "apikey"
+            },
+            {
+              "name": "from",
+              "value": "={{ $now.setZone('Asia/Tokyo').minus({ days: 120 }).toFormat('yyyy-MM-dd') }}"
+            },
+            {
+              "name": "to",
+              "value": "={{ $now.toFormat('yyyy-MM-dd') }}"
+            },
+            {
+              "name": "symbol",
+              "value": "={{ $json.code }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        256,
+        128
+      ],
+      "id": "8acdc533-a39b-4e98-8d25-cf89f7325d65",
+      "name": "FMP"
+    },
+    {
+      "parameters": {
+        "url": "https://api.finmindtrade.com/api/v4/data",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "dataset",
+              "value": "TaiwanStockPrice"
+            },
+            {
+              "name": "data_id",
+              "value": "={{ $json.code }}"
+            },
+            {
+              "name": "start_date",
+              "value": "={{ $now.setZone('Asia/Tokyo').minus({ days: 120 }).toFormat('yyyy-MM-dd') }}"
+            },
+            {
+              "name": "token"
+            },
+            {
+              "name": "end_date",
+              "value": "={{ $now.toFormat('yyyy-MM-dd') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        256,
+        320
+      ],
+      "id": "ef1dfe1c-ea6a-4db0-8ddf-e6d249100658",
+      "name": "FinMind"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "stock",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -512,
+        224
+      ],
+      "id": "c356ceef-6ded-4089-8f90-7427df771733",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=請針對股票代碼 {{ $('Switch').item.json.code }} 進行技術分析，專門負責識別「超跌反彈」投資機會。請使用提供的三個專業工具來全面評估股票，判斷是否符合超跌反彈的條件。\n\n## 策略邏輯說明\n此策略尋找經歷明顯下跌後，出現技術指標超賣且型態反轉訊號的股票。四個條件需要在相同時間框架內相互印證，而非獨立判斷。\n\n## 詳細分析要求\n### 條件1：布林通道極值分析\n- 計算20日布林通道：中線為20日簡單移動平均線，上軌為中線+2倍標準差，下軌為中線-2倍標準差\n- 重點檢查：在形成低點（特別是W底的兩個低點）時，股價是否觸及或跌破下軌\n- 量化指標：計算低點時股價與下軌的距離百分比\n- 回升確認：檢查股價是否已經重新站回下軌之上\n\n### 條件2：RSI超賣狀態驗證\n- 計算14日RSI在低點形成期間的數值\n- 超賣確認：RSI是否曾跌破30\n- 背離分析：比較W底兩個低點時的RSI數值，第二個低點的RSI是否高於第一個低點\n- 回升動能：RSI是否已經從最低點開始回升\n\n### 條件3：W底型態完整性檢驗\n- 型態搜尋範圍：近60個交易日內的完整W底型態\n- 第一低點：必須是明顯的波段低點，伴隨放量或跌破布林下軌。\n- 反彈高點：第一低點後必須有一次反彈，形成頸線。\n- 第二低點：必須出現在反彈高點之後，且收盤價與第一低點差異不超過10%，成交量較第一低點縮小。\n- 頸線定義：連接兩個低點間反彈高點的水平線或略微上升線\n- 成交量配合：第一個底部大量，第二個底部量縮，接近突破頸線時量能開始增加\n- 頸線突破：必須觀察到股價突破頸線，且突破當日或之後成交量放大，才確認型態成立。\n\n### 條件4：AD指標資金流向分析\n- 計算完整的AD累積派發線數據\n- 底部確認：AD指標在股價低點時是否也同步創低\n- 背離訊號：股價形成第二個低點時，AD指標是否未創新低\n- 回升確認：AD指標是否在近10個交易日內出現明確的上升趨勢\n- 力度評估：AD指標回升的斜率和持續性\n\n## 綜合評估框架\n### 時序邏輯檢查\n1. 確認四個條件發生的時間順序是否合理\n2. W底形成期間，其他三個指標是否同步出現相應訊號\n3. 當前階段：是否處於W底完成並開始突破的關鍵時點\n\n**分析方式**：\n1. 使用「Trend Analysis」工具分析趨勢和布林通道等趨勢分析，判斷策略分析中的要求\n2. 使用「Technical Indicator Analysis」工具檢查RSI、AD、MACD 等指標，判斷策略分析中的要求\n3. 使用「Chart Pattern Analysis」工具識別型態例如W底型態、頭肩頂形態等，判斷策略分析中的要求\n4. 綜合三個工具的分析結果，判斷是否符合超跌反彈策略中的條件\n\n股價數據：{{ $json.prices }}\n\n**輸出要求**：\n- 如果符合所有4個條件，回傳「**超跌反彈機會確認** - [股票代碼]符合超跌反彈條件，建議關注」\n- 如果不符合，回傳「條件不符 - [股票代碼]未達超跌反彈標準」\n- 提供具體的分析細節和各項指標數值\n\n**風險提醒**：\n所有分析結果僅供教育學習用途，不構成投資建議。",
+        "options": {
+          "systemMessage": "你是一位資深的股票分析師，具備豐富的技術分析和量化分析經驗。你的分析風格客觀、專業，善於整合多元資訊提供深度見解。\n\n分析原則：\n1. 客觀中立：基於數據和事實進行分析，避免主觀推測\n2. 風險意識：適當提醒潛在風險和不確定性\n3. 教育導向：所有分析僅供教育和學習用途，不構成投資建議\n\n請使用繁體中文回覆，保持專業但易懂的表達方式。"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        720,
+        336
+      ],
+      "id": "27f99a98-8b11-43ad-9cfd-623980f921ba",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  // 處理 FMP API 回傳的資料 (美股)\n  if (item.json.historical) {\n    const pricesData = item.json.historical.map(day => ({\n      date: day.date,\n      open: day.open,\n      high: day.high,\n      low: day.low,\n      close: day.close,\n      volume: day.volume\n    }));\n    \n    return {\n      json: {\n        code: item.json.symbol,\n        market: \"USA\",\n        prices: JSON.stringify(pricesData)  // 移除格式化參數，變成緊湊格式\n      }\n    };\n  }\n  \n  // 處理 FinMind API 回傳的資料 (台股)\n  if (item.json.data && item.json.data.length > 0) {\n    const pricesData = item.json.data.map(day => ({\n      date: day.date,\n      open: day.open,\n      high: day.max,\n      low: day.min,\n      close: day.close,\n      volume: day.Trading_Volume\n    }));\n    \n    return {\n      json: {\n        code: item.json.data[0].stock_id,\n        market: \"TW\",\n        prices: JSON.stringify(pricesData)  // 移除格式化參數，變成緊湊格式\n      }\n    };\n  }\n  \n  return { json: {} };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        256
+      ],
+      "id": "5ec7a746-6916-4dd4-b1ec-253910ac9273",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "chatId": "-4881332018",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "58afff0e-9947-4f2b-bc11-a0af773c400b",
+      "name": "Send a text message",
+      "webhookId": "af06958e-c944-4692-988d-54e1485dfa3f",
+      "credentials": {
+        "telegramApi": {
+          "id": "ItP74dWZ3ris32YF",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -944,
+        224
+      ],
+      "id": "9d0c1881-73f2-4e6f-abcc-7489901af05b",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-20250514",
+          "mode": "list",
+          "cachedResultName": "Claude Sonnet 4"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        592,
+        544
+      ],
+      "id": "bcc15c55-0e7a-4943-8c0f-266949ff1070",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "o9eoy4lkNvzVUjRO",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "專門監測並解析金融市場價格走勢，根據歷史資料及當前市況，透過均線和布林通道等方法，辨識目前股價趨勢正在上升、下降或盤整，協助其他 AI 制定順勢或反向交易策略。",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "你是一位趨勢分析的專家"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 2.2,
+      "position": [
+        816,
+        608
+      ],
+      "id": "8e7a9c59-299b-44f7-a76a-b3fd5a2dff99",
+      "name": "Trend Analysis"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        752,
+        752
+      ],
+      "id": "b0a590c9-8b94-4a24-bf61-f0e47b013198",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "2f41MORKnohpi0Li",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1136,
+        768
+      ],
+      "id": "f0c758fc-aaa6-4648-b013-fa36368aa42a",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "2f41MORKnohpi0Li",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "自動辨識K線圖表上的常見型態（如頭肩頂、W底、M頭、三角收斂等），分析型態出現位置與目前股價是否處於型態完成的階段，協助其他 AI 工具判斷重要支撐阻力或反轉時點。",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "你是一位K線圖型態分析的專家"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 2.2,
+      "position": [
+        1536,
+        592
+      ],
+      "id": "538aa850-7823-4a47-8e6b-f54464a4a153",
+      "name": "Chart Pattern Analysis"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1456,
+        736
+      ],
+      "id": "e93bd95c-c71d-4bed-af0f-b86d50b4740a",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "2f41MORKnohpi0Li",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "負責收集並計算各類技術指標（如KD、MACD、RSI等），根據指標變化判斷市場強弱、動能、超買/超賣狀態，提供客觀量化的買賣信號予其他 AI 工具調用。",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "你是一位技術分析指標的專家"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 2.2,
+      "position": [
+        1168,
+        624
+      ],
+      "id": "b9e8791c-0a56-43a3-b786-845993ef6679",
+      "name": "Technical Indicator Analysis"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "FMP",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "FinMind",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FMP": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FinMind": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trend Analysis": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Trend Analysis",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Technical Indicator Analysis",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chart Pattern Analysis": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Chart Pattern Analysis",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Technical Indicator Analysis": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "9788e311-e9b4-4e12-b416-2e19a5548d3a",
+  "meta": {
+    "instanceId": "1ba08afc1dd59121b2c41e37c22d133ddad3ab99d97b7fa1a3dcf3f57469899c"
+  },
+  "id": "wru78slI8PYUVUDK",
+  "tags": []
+}
